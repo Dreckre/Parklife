@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'porter_screen.dart';
 
 // Archivo generado por: flutterfire configure
 import 'firebase_options.dart';
@@ -128,6 +129,58 @@ class AuthService {
       default:
         return 'Error de autenticación (${e.code}).';
     }
+  }
+}
+
+
+
+
+class VehicleService {
+  static final FirebaseFirestore _db = FirebaseFirestore.instance;
+  static String? get _uid => FirebaseAuth.instance.currentUser?.uid;
+
+  // Colección: vehiculos/{id} -> { uid, placa, marca, modelo, color }
+  static CollectionReference<Map<String, dynamic>> get _vehiculos =>
+      _db.collection('vehiculos');
+
+  // Escucha los vehículos del usuario en tiempo real
+  static Stream<List<Vehicle>> watchMyVehicles() {
+    final uid = _uid;
+    if (uid == null) return const Stream.empty();
+
+    return _vehiculos
+        .where('uid', isEqualTo: uid)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) {
+      final data = d.data();
+      return Vehicle(
+        id: d.id,
+        plate: data['placa'] ?? '',
+        brand: data['marca'] ?? '',
+        model: data['modelo'] ?? '',
+        color: data['color'] ?? '',
+      );
+    }).toList());
+  }
+
+  // Guarda un vehículo nuevo
+  static Future<void> addVehicle({
+    required String plate,
+    required String brand,
+    required String model,
+    required String color,
+  }) async {
+    final uid = _uid;
+    if (uid == null) throw Exception('No hay usuario logueado');
+
+    await _vehiculos.add({
+      'uid': uid,
+      'placa': plate.toUpperCase(),
+      'marca': brand.toUpperCase(),
+      'modelo': model,
+      'color': color.toUpperCase(),
+      'creado': FieldValue.serverTimestamp(),
+    });
   }
 }
 
@@ -744,34 +797,69 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    StreamBuilder<Reserva?>(
-                      stream: ParkingService.watchMyReserva(),
-                      builder: (context, snapshot) {
-                        final reserva = snapshot.data;
+                StreamBuilder<Reserva?>(
+                  stream: ParkingService.watchMyReserva(),
+                  builder: (context, reservaSnap) {
+                    final reserva = reservaSnap.data;
+
+                    return StreamBuilder<String?>(
+                      stream: AdminService.watchRole(), // Nueva función que veremos en el Paso 3
+                      builder: (context, roleSnap) {
+                        final role = roleSnap.data;
+
+                        // 1. VISTA DEL PORTERO
+                        if (role == 'portero') {
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                            child: Column(
+                              children: [
+                                const Icon(Icons.security, size: 64, color: kOrange),
+                                const SizedBox(height: 16),
+                                const Text('Modo Portero', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 16),
+                                ElevatedButton.icon(
+                                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PorterScreen())),
+                                  icon: const Icon(Icons.qr_code_scanner),
+                                  label: const Text('Escanear QR de Estudiante'),
+                                  style: ElevatedButton.styleFrom(backgroundColor: kGreen, foregroundColor: Colors.black),
+                                )
+                              ],
+                            ),
+                          );
+                        }
+
+                        // 2. VISTA DEL ADMIN (Para que no reserve)
+                        if (role == 'admin') {
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                            child: const Column(
+                              children: [
+                                Icon(Icons.admin_panel_settings, size: 64, color: kOrange),
+                                SizedBox(height: 16),
+                                Text('Modo Administrador', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                                SizedBox(height: 8),
+                                Text('Usa el menú de ajustes para gestionar los parqueaderos.', textAlign: TextAlign.center),
+                              ],
+                            ),
+                          );
+                        }
+
+                        // 3. VISTA DEL ESTUDIANTE (Normal)
                         return Column(
                           children: [
                             _ReserveCard(
                               onTap: () {
                                 if (reserva != null) {
-                                  ScaffoldMessenger.of(context)
-                                    ..hideCurrentSnackBar()
-                                    ..showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Ya tienes una reserva activa. '
-                                          'Cancélala para hacer otra.',
-                                        ),
-                                      ),
-                                    );
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Ya tienes una reserva activa. Cancélala para hacer otra.')),
+                                  );
                                   return;
                                 }
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const VehiclesScreen(),
-                                  ),
-                                );
+                                Navigator.push(context, MaterialPageRoute(builder: (context) => const VehiclesScreen()));
                               },
                             ),
                             if (reserva != null) ...[
@@ -782,7 +870,9 @@ class HomeScreen extends StatelessWidget {
                           ],
                         );
                       },
-                    ),
+                    );
+                  },
+                ),
                   ],
                 ),
               ),
@@ -1395,12 +1485,14 @@ class _MapPreview extends StatelessWidget {
 }
 
 class Vehicle {
+  final String id;
   final String plate;
   final String brand;
   final String model;
   final String color;
 
   const Vehicle({
+    required this.id,
     required this.plate,
     required this.brand,
     required this.model,
@@ -1416,172 +1508,312 @@ class VehiclesScreen extends StatefulWidget {
 }
 
 class _VehiclesScreenState extends State<VehiclesScreen> {
-  // Datos de ejemplo; luego vendrán de una base de datos o API.
-  static const List<Vehicle> _vehicles = [
-    Vehicle(plate: 'XDE 32H', brand: 'APACHE', model: '2026', color: 'NEGRO'),
-    Vehicle(plate: 'ABC 12D', brand: 'PULSAR', model: '2024', color: 'ROJO'),
-  ];
-  int _selected = 0;
+  int _selectedIndex = 0;
+  bool _isAdding = false;
+
+  final _formKey = GlobalKey<FormState>();
+  final _plateCtrl = TextEditingController();
+  final _brandCtrl = TextEditingController();
+  final _modelCtrl = TextEditingController();
+  final _colorCtrl = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _plateCtrl.dispose();
+    _brandCtrl.dispose();
+    _modelCtrl.dispose();
+    _colorCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveVehicle() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      await VehicleService.addVehicle(
+        plate: _plateCtrl.text.trim(),
+        brand: _brandCtrl.text.trim(),
+        model: _modelCtrl.text.trim(),
+        color: _colorCtrl.text.trim(),
+      );
+      if (mounted) {
+        setState(() {
+          _isAdding = false;
+          _saving = false;
+          _plateCtrl.clear();
+          _brandCtrl.clear();
+          _modelCtrl.clear();
+          _colorCtrl.clear();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vehículo agregado con éxito')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final v = _vehicles[_selected];
-
     return Scaffold(
       backgroundColor: kOrange,
       bottomNavigationBar: const _BottomBar(selected: 1),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: Column(
-            children: [
-              // Encabezado: flecha de volver + título centrado
-              Stack(
-                alignment: Alignment.center,
+        child: StreamBuilder<List<Vehicle>>(
+          stream: VehicleService.watchMyVehicles(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: Colors.white));
+            }
+
+            final vehicles = snapshot.data ?? [];
+
+            if (_isAdding) {
+              return _buildAddForm();
+            }
+
+            if (vehicles.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.directions_car, size: 80, color: Colors.white),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No tienes vehículos registrados',
+                      style: TextStyle(color: Colors.white, fontSize: 20),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () => setState(() => _isAdding = true),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Agregar mi vehículo'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kGreen,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: const StadiumBorder(side: BorderSide(color: Colors.black)),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            if (_selectedIndex >= vehicles.length) _selectedIndex = 0;
+            final v = vehicles[_selectedIndex];
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: Column(
                 children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: InkWell(
-                      onTap: () => Navigator.pop(context),
-                      child: const Icon(Icons.arrow_back, color: Colors.black),
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: InkWell(
+                          onTap: () => Navigator.pop(context),
+                          child: const Icon(Icons.arrow_back, color: Colors.black),
+                        ),
+                      ),
+                      const Text(
+                        'Tus vehículos',
+                        style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          icon: const Icon(Icons.add_circle, color: Colors.white),
+                          onPressed: () => setState(() => _isAdding = true),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int>(
+                        value: _selectedIndex,
+                        isExpanded: true,
+                        icon: const CircleAvatar(
+                          radius: 11,
+                          backgroundColor: Colors.black,
+                          child: Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.white),
+                        ),
+                        style: const TextStyle(color: Colors.black, fontSize: 22, fontWeight: FontWeight.bold),
+                        items: [
+                          for (int i = 0; i < vehicles.length; i++)
+                            DropdownMenuItem(
+                              value: i,
+                              child: Text('Vehículo ${i + 1} (${vehicles[i].plate})'),
+                            ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) setState(() => _selectedIndex = value);
+                        },
+                      ),
                     ),
                   ),
-                  const Text(
-                    'Tus vehículos',
-                    style: TextStyle(
+                  const SizedBox(height: 24),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
                       color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Center(
+                          child: Text(
+                            'Información del vehículo',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        _InfoLine(label: 'PLACA', value: v.plate),
+                        _InfoLine(label: 'MARCA', value: v.brand),
+                        _InfoLine(label: 'MODELO', value: v.model),
+                        _InfoLine(label: 'COLOR', value: v.color),
+                        const SizedBox(height: 48),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => SelectParkingScreen(plate: v.plate),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: kGreen,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: Colors.black),
+                                ),
+                                child: const Text(
+                                  'RESERVAR',
+                                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            GestureDetector(
+                              onTap: () => Navigator.pop(context),
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.black),
+                                ),
+                                child: const Icon(Icons.close, color: Colors.black),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+            );
+          },
+        ),
+      ),
+    );
+  }
 
-              // Selector de vehículo
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int>(
-                    value: _selected,
-                    isExpanded: true,
-                    icon: const CircleAvatar(
-                      radius: 11,
-                      backgroundColor: Colors.black,
-                      child: Icon(
-                        Icons.keyboard_arrow_down,
-                        size: 16,
-                        color: Colors.white,
-                      ),
-                    ),
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    selectedItemBuilder: (context) => [
-                      for (int i = 0; i < _vehicles.length; i++)
-                        Center(child: Text('Vehículo ${i + 1}')),
-                    ],
-                    items: [
-                      for (int i = 0; i < _vehicles.length; i++)
-                        DropdownMenuItem(
-                          value: i,
-                          child: Text('Vehículo ${i + 1}'),
-                        ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) setState(() => _selected = value);
-                    },
+  Widget _buildAddForm() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: InkWell(
+                    onTap: () => setState(() => _isAdding = false),
+                    child: const Icon(Icons.arrow_back, color: Colors.black),
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-
-              // Tarjeta con la información
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                const Text(
+                  'Nuevo vehículo',
+                  style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Center(
-                      child: Text(
-                        'Información del vehículo',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    _InfoLine(label: 'PLACA', value: v.plate),
-                    _InfoLine(label: 'MARCA', value: v.brand),
-                    _InfoLine(label: 'MODELO', value: v.model),
-                    _InfoLine(label: 'COLOR', value: v.color),
-                    const SizedBox(height: 48),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    SelectParkingScreen(plate: v.plate),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: kGreen,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.black),
-                            ),
-                            child: const Text(
-                              'RESERVAR',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.black),
-                            ),
-                            child: const Icon(Icons.close, color: Colors.black),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
               ),
-              const SizedBox(height: 16),
-            ],
-          ),
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _plateCtrl,
+                    decoration: const InputDecoration(labelText: 'Placa'),
+                    validator: (v) => v!.isEmpty ? 'Escribe la placa' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _brandCtrl,
+                    decoration: const InputDecoration(labelText: 'Marca'),
+                    validator: (v) => v!.isEmpty ? 'Escribe la marca' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _modelCtrl,
+                    decoration: const InputDecoration(labelText: 'Modelo (Opcional)'),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _colorCtrl,
+                    decoration: const InputDecoration(labelText: 'Color'),
+                    validator: (v) => v!.isEmpty ? 'Escribe el color' : null,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _saving ? null : _saveVehicle,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kGreen,
+                      foregroundColor: Colors.black,
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: const StadiumBorder(side: BorderSide(color: Colors.black)),
+                    ),
+                    child: _saving
+                        ? const CircularProgressIndicator(color: Colors.black)
+                        : const Text('Guardar vehículo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1622,7 +1854,7 @@ class QrScreen extends StatefulWidget {
 }
 
 class _QrScreenState extends State<QrScreen> {
-  static const Duration _validity = Duration(seconds: 15);
+  static const Duration _validity = Duration(minutes: 30);
 
   Timer? _timer;
   late String _code;
@@ -1654,12 +1886,15 @@ class _QrScreenState extends State<QrScreen> {
 
     ParkingService.saveCode(_code, _expiresAt);
 
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) async {
       if (!mounted) return;
       final left = _expiresAt.difference(DateTime.now());
       if (left <= Duration.zero) {
         _timer?.cancel();
         setState(() => _remaining = Duration.zero);
+
+        // Si el tiempo expira, liberamos el cupo automáticamente
+        await ParkingService.release();
       } else {
         setState(() => _remaining = left);
       }

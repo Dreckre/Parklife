@@ -41,48 +41,44 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBT5w-gpLxD7eZVhuHb2752Qd45nSDgCfk',
-    appId: '1:1000647524326:web:ad52bcc304bde7c436e027',
-    messagingSenderId: '1000647524326',
-    projectId: 'parklyfe',
-    authDomain: 'parklyfe.firebaseapp.com',
-    storageBucket: 'parklyfe.firebasestorage.app',
-    measurementId: 'G-RJE2L50ZGP',
+    apiKey: 'AIzaSyBoxqFqfRQeKPY5FDKQ8wnD4in4ys77kyk',
+    appId: '1:348921125965:web:0c454afe210d3a47a7d004',
+    messagingSenderId: '348921125965',
+    projectId: 'parlyfe-155bb',
+    authDomain: 'parlyfe-155bb.firebaseapp.com',
+    storageBucket: 'parlyfe-155bb.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBD_K3o6S1p7-CASeaZZ4FtxMpajVhrtiY',
-    appId: '1:1000647524326:android:fbf4f1b53070599e36e027',
-    messagingSenderId: '1000647524326',
-    projectId: 'parklyfe',
-    storageBucket: 'parklyfe.firebasestorage.app',
+    apiKey: 'AIzaSyDzEWniyz5p8hKMCkjoxug3pyKLgdYQizs',
+    appId: '1:348921125965:android:60cba9e8aeed9428a7d004',
+    messagingSenderId: '348921125965',
+    projectId: 'parlyfe-155bb',
+    storageBucket: 'parlyfe-155bb.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyC5jqqh0vc81W0QRLLmggMjEsDB3liDVaI',
-    appId: '1:1000647524326:ios:5866ffdde2a8c65636e027',
-    messagingSenderId: '1000647524326',
-    projectId: 'parklyfe',
-    storageBucket: 'parklyfe.firebasestorage.app',
+    apiKey: 'AIzaSyA9FdkCm1rr7Qbfzfarbsk4VyMKXQ3cIls',
+    appId: '1:348921125965:ios:e1d6d2481051e5cda7d004',
+    messagingSenderId: '348921125965',
+    projectId: 'parlyfe-155bb',
+    storageBucket: 'parlyfe-155bb.firebasestorage.app',
     iosBundleId: 'com.example.proyectoApp',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyC5jqqh0vc81W0QRLLmggMjEsDB3liDVaI',
-    appId: '1:1000647524326:ios:5866ffdde2a8c65636e027',
-    messagingSenderId: '1000647524326',
-    projectId: 'parklyfe',
-    storageBucket: 'parklyfe.firebasestorage.app',
+    apiKey: 'AIzaSyA9FdkCm1rr7Qbfzfarbsk4VyMKXQ3cIls',
+    appId: '1:348921125965:ios:e1d6d2481051e5cda7d004',
+    messagingSenderId: '348921125965',
+    projectId: 'parlyfe-155bb',
+    storageBucket: 'parlyfe-155bb.firebasestorage.app',
     iosBundleId: 'com.example.proyectoApp',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyBT5w-gpLxD7eZVhuHb2752Qd45nSDgCfk',
-    appId: '1:1000647524326:web:171c6824eeccae6136e027',
-    messagingSenderId: '1000647524326',
-    projectId: 'parklyfe',
-    authDomain: 'parklyfe.firebaseapp.com',
-    storageBucket: 'parklyfe.firebasestorage.app',
-    measurementId: 'G-9PYY8Y59VP',
+    apiKey: 'AIzaSyBoxqFqfRQeKPY5FDKQ8wnD4in4ys77kyk',
+    appId: '1:348921125965:web:f37a336fd942c5b0a7d004',
+    messagingSenderId: '348921125965',
+    projectId: 'parlyfe-155bb',
+    authDomain: 'parlyfe-155bb.firebaseapp.com',
+    storageBucket: 'parlyfe-155bb.firebasestorage.app',
   );
 }

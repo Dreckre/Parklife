@@ -12,6 +12,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 // Archivo generado por: flutterfire configure
 import 'firebase_options.dart';
+import 'admin_parkings.dart' show AdminParkingsScreen, AdminService;
 
 const Color kOrange = Color(0xFFFF6B00);
 const Color kGreen = Color(0xFF7DF05A);
@@ -572,9 +573,14 @@ class ParkingService {
     },
   ];
 
-  /// Crea los parqueaderos en Firestore si todavía no existen.
+  /// Crea los parqueaderos de ejemplo UNA sola vez (config/parkings_seed).
+  /// Sin esta marca, los parqueaderos que el administrador elimine se
+  /// volverían a crear cada vez que alguien abre la pantalla de parqueaderos.
   static Future<void> seedIfNeeded() async {
     try {
+      final marker = _db.collection('config').doc('parkings_seed');
+      if ((await marker.get()).exists) return;
+
       for (final p in _seed) {
         final ref = _parkings.doc(p['id'] as String);
         await _db.runTransaction((tx) async {
@@ -590,6 +596,7 @@ class ParkingService {
           }
         });
       }
+      await marker.set({'hecho': true, 'creado': FieldValue.serverTimestamp()});
     } catch (e) {
       debugPrint('No se pudieron crear los parqueaderos: $e');
     }
@@ -833,18 +840,42 @@ class _Header extends StatelessWidget {
                   ],
                 ),
               ),
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'logout') AuthService.signOut();
+              // La opción de administrador solo aparece si users/{uid}.rol == 'admin'.
+              StreamBuilder<bool>(
+                stream: AdminService.watchIsAdmin(),
+                initialData: false,
+                builder: (context, adminSnap) {
+                  final isAdmin = adminSnap.data == true;
+                  return PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'logout') AuthService.signOut();
+                      if (value == 'admin') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AdminParkingsScreen(),
+                          ),
+                        );
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      if (isAdmin)
+                        const PopupMenuItem(
+                          value: 'admin',
+                          child: Text('Administrar parqueaderos'),
+                        ),
+                      const PopupMenuItem(
+                        value: 'logout',
+                        child: Text('Cerrar sesión'),
+                      ),
+                    ],
+                    child: const CircleAvatar(
+                      radius: 16,
+                      backgroundColor: Colors.white,
+                      child: Icon(Icons.settings, color: kOrange, size: 20),
+                    ),
+                  );
                 },
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'logout', child: Text('Cerrar sesión')),
-                ],
-                child: const CircleAvatar(
-                  radius: 16,
-                  backgroundColor: Colors.white,
-                  child: Icon(Icons.settings, color: kOrange, size: 20),
-                ),
               ),
             ],
           ),

@@ -45,7 +45,6 @@ class MyApp extends StatelessWidget {
 // AUTENTICACIÓN
 // ============================================================
 
-/// Decide qué pantalla mostrar según haya o no una sesión iniciada.
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
@@ -75,11 +74,7 @@ class AuthService {
     await _auth.signInWithEmailAndPassword(email: email, password: password);
   }
 
-  static Future<void> register(
-    String name,
-    String email,
-    String password,
-  ) async {
+  static Future<void> register(String name, String email, String password) async {
     final cred = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
@@ -87,7 +82,6 @@ class AuthService {
     final user = cred.user!;
     await user.updateDisplayName(name);
 
-    // Perfil del usuario en Firestore (si falla, la cuenta igual queda creada).
     try {
       await _db.collection('users').doc(user.uid).set({
         'nombre': name,
@@ -132,18 +126,13 @@ class AuthService {
   }
 }
 
-
-
-
 class VehicleService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
   static String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
-  // Colección: vehiculos/{id} -> { uid, placa, marca, modelo, color }
   static CollectionReference<Map<String, dynamic>> get _vehiculos =>
       _db.collection('vehiculos');
 
-  // Escucha los vehículos del usuario en tiempo real
   static Stream<List<Vehicle>> watchMyVehicles() {
     final uid = _uid;
     if (uid == null) return const Stream.empty();
@@ -163,7 +152,6 @@ class VehicleService {
     }).toList());
   }
 
-  // Guarda un vehículo nuevo
   static Future<void> addVehicle({
     required String plate,
     required String brand,
@@ -231,7 +219,6 @@ class _AuthScreenState extends State<AuthScreen> {
       } else {
         await AuthService.register(_nameCtrl.text.trim(), email, pass);
       }
-      // Al iniciar sesión, AuthGate cambia solo a la pantalla de inicio.
     } on FirebaseAuthException catch (e) {
       _msg(AuthService.errorText(e));
     } catch (_) {
@@ -273,7 +260,6 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  // Campo gris en forma de píldora, con ícono a la izquierda.
   Widget _pill({
     required TextEditingController controller,
     required String hint,
@@ -304,10 +290,7 @@ class _AuthScreenState extends State<AuthScreen> {
         prefixIcon: Icon(icon, color: _greyText, size: 26),
         filled: true,
         fillColor: _fieldColor,
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 14,
-          horizontal: 20,
-        ),
+        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
         errorStyle: const TextStyle(fontWeight: FontWeight.bold),
         border: _outline(),
         enabledBorder: _outline(),
@@ -325,10 +308,7 @@ class _AuthScreenState extends State<AuthScreen> {
       body: LayoutBuilder(
         builder: (context, c) {
           final w = c.maxWidth;
-          // Alto mínimo para que el formulario nunca se aplaste;
-          // si el teclado reduce la pantalla, se puede deslizar.
           final h = max(c.maxHeight, 700.0);
-          // La maqueta mide 414 x 896: todo se escala a partir de ahí.
           final s = w / 414;
 
           Widget dot(double cx, double cy, double d, Color color) {
@@ -349,7 +329,6 @@ class _AuthScreenState extends State<AuthScreen> {
               height: h,
               child: Stack(
                 children: [
-                  // Óvalo blanco grande del centro
                   Positioned(
                     left: -0.338 * w,
                     top: 0.16 * h,
@@ -357,21 +336,15 @@ class _AuthScreenState extends State<AuthScreen> {
                     height: 0.757 * h,
                     child: const ClipOval(child: ColoredBox(color: Colors.white)),
                   ),
-
-                  // Círculos blancos sobre el fondo naranja
                   dot(41, 100, 112, Colors.white),
                   dot(170, 17, 27, Colors.white),
                   dot(379, 70, 28, Colors.white),
                   dot(372, 858, 118, Colors.white),
                   dot(205, 854, 28, Colors.white),
-
-                  // Círculos naranjas sobre el óvalo blanco
                   dot(292, 195, 28, kOrange),
                   dot(30, 375, 28, kOrange),
                   dot(387, 481, 28, kOrange),
                   dot(47, 751, 28, kOrange),
-
-                  // Formulario
                   Positioned(
                     left: 0.09 * w,
                     right: 0.09 * w,
@@ -397,7 +370,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               icon: Icons.person,
                               capitalization: TextCapitalization.words,
                               validator: (v) =>
-                                  (v == null || v.trim().length < 2)
+                              (v == null || v.trim().length < 2)
                                   ? 'Escribe tu nombre'
                                   : null,
                             ),
@@ -467,28 +440,26 @@ class _AuthScreenState extends State<AuthScreen> {
                               ),
                               child: _loading
                                   ? const SizedBox(
-                                      height: 22,
-                                      width: 22,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 3,
-                                        color: Colors.black,
-                                      ),
-                                    )
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                  color: Colors.black,
+                                ),
+                              )
                                   : Text(
-                                      _isLogin ? 'Iniciar sesión' : 'Registrarme',
-                                      style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
+                                _isLogin ? 'Iniciar sesión' : 'Registrarme',
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
                   ),
-
-                  // Enlace de abajo
                   Positioned(
                     left: 0,
                     right: 0,
@@ -520,12 +491,7 @@ class _AuthScreenState extends State<AuthScreen> {
 }
 
 // ============================================================
-// PARQUEADEROS Y RESERVAS EN TIEMPO REAL (Firestore)
-//
-//  parkings/{id}  -> name, total, ocupados, lat, lng
-//  reservas/{uid} -> reserva activa del usuario (un doc por usuario,
-//                    así es imposible tener dos reservas a la vez)
-//  users/{uid}    -> nombre, email
+// PARQUEADEROS Y RESERVAS
 // ============================================================
 
 class ParkingException implements Exception {
@@ -570,19 +536,31 @@ class Reserva {
   final String parkingId;
   final String parkingName;
   final String plate;
+  final DateTime? vence;
+  final bool usado;
+  final DateTime? salidaEstimada;
 
   const Reserva({
     required this.parkingId,
     required this.parkingName,
     required this.plate,
+    this.vence,
+    this.usado = false,
+    this.salidaEstimada,
   });
 
   factory Reserva.fromDoc(DocumentSnapshot<Map<String, dynamic>> d) {
     final data = d.data() ?? {};
+    final venceTimestamp = data['vence'] as Timestamp?;
+    final salidaTimestamp = data['salidaEstimada'] as Timestamp?;
+
     return Reserva(
       parkingId: (data['parkingId'] ?? '') as String,
       parkingName: (data['parkingName'] ?? '') as String,
       plate: (data['placa'] ?? '') as String,
+      vence: venceTimestamp?.toDate(),
+      usado: (data['usado'] ?? false) as bool,
+      salidaEstimada: salidaTimestamp?.toDate(),
     );
   }
 }
@@ -598,13 +576,12 @@ class ParkingService {
 
   static String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
-  // Datos iniciales (los mismos de ejemplo que tenía la app).
   static const List<Map<String, dynamic>> _seed = [
     {
       'id': 'parqueadero1',
       'name': 'Parqueadero 1',
       'total': 100,
-      'ocupados': 80,
+      'ocupados': 0,
       'lat': 7.103941,
       'lng': -73.122502,
     },
@@ -612,7 +589,7 @@ class ParkingService {
       'id': 'parqueadero2',
       'name': 'Parqueadero 2',
       'total': 100,
-      'ocupados': 55,
+      'ocupados': 0,
       'lat': 7.105799,
       'lng': -73.123264,
     },
@@ -620,15 +597,12 @@ class ParkingService {
       'id': 'parqueadero3',
       'name': 'Parqueadero 3',
       'total': 100,
-      'ocupados': 92,
+      'ocupados': 0,
       'lat': 7.107119,
       'lng': -73.122615,
     },
   ];
 
-  /// Crea los parqueaderos de ejemplo UNA sola vez (config/parkings_seed).
-  /// Sin esta marca, los parqueaderos que el administrador elimine se
-  /// volverían a crear cada vez que alguien abre la pantalla de parqueaderos.
   static Future<void> seedIfNeeded() async {
     try {
       final marker = _db.collection('config').doc('parkings_seed');
@@ -655,7 +629,6 @@ class ParkingService {
     }
   }
 
-  /// Lista de parqueaderos que se actualiza sola en todos los celulares.
   static Stream<List<Parking>> watchParkings() {
     return _parkings.snapshots().map((snap) {
       final list = snap.docs.map(Parking.fromDoc).toList();
@@ -664,17 +637,14 @@ class ParkingService {
     });
   }
 
-  /// Reserva activa del usuario actual (null si no tiene).
   static Stream<Reserva?> watchMyReserva() {
     final uid = _uid;
     if (uid == null) return const Stream<Reserva?>.empty();
-    return _reservaRef(
-      uid,
-    ).snapshots().map((d) => d.exists ? Reserva.fromDoc(d) : null);
+    return _reservaRef(uid)
+        .snapshots()
+        .map((d) => d.exists ? Reserva.fromDoc(d) : null);
   }
 
-  /// Reserva un cupo. Usa una transacción: si dos personas piden el último
-  /// cupo al mismo tiempo, solo una lo consigue.
   static Future<void> reserve({
     required String parkingId,
     required String plate,
@@ -691,9 +661,7 @@ class ParkingService {
 
       if (!pSnap.exists) throw ParkingException('El parqueadero no existe.');
       if (rSnap.exists) {
-        throw ParkingException(
-          'Ya tienes una reserva activa. Cancélala para hacer otra.',
-        );
+        throw ParkingException('Ya tienes una reserva activa. Cancélala para hacer otra.');
       }
 
       final data = pSnap.data()!;
@@ -710,12 +678,12 @@ class ParkingService {
         'parkingName': data['name'],
         'placa': plate,
         'codigo': '',
+        'usado': false,
         'creada': FieldValue.serverTimestamp(),
       });
     });
   }
 
-  /// Cancela la reserva del usuario y libera el cupo para todos.
   static Future<void> release() async {
     final uid = _uid;
     if (uid == null) return;
@@ -736,7 +704,6 @@ class ParkingService {
     });
   }
 
-  /// Lee una sola vez la reserva activa del usuario (null si no tiene).
   static Future<Reserva?> getMyReserva() async {
     final uid = _uid;
     if (uid == null) return null;
@@ -744,14 +711,14 @@ class ParkingService {
     return d.exists ? Reserva.fromDoc(d) : null;
   }
 
-  /// Guarda el último código QR generado en la reserva.
   static Future<void> saveCode(String code, DateTime expiresAt) async {
     final uid = _uid;
     if (uid == null) return;
     try {
-      await _reservaRef(
-        uid,
-      ).update({'codigo': code, 'vence': Timestamp.fromDate(expiresAt)});
+      await _reservaRef(uid).update({
+        'codigo': code,
+        'vence': Timestamp.fromDate(expiresAt),
+      });
     } catch (e) {
       debugPrint('No se pudo guardar el código: $e');
     }
@@ -797,82 +764,78 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 32),
-                StreamBuilder<Reserva?>(
-                  stream: ParkingService.watchMyReserva(),
-                  builder: (context, reservaSnap) {
-                    final reserva = reservaSnap.data;
+                    StreamBuilder<Reserva?>(
+                      stream: ParkingService.watchMyReserva(),
+                      builder: (context, reservaSnap) {
+                        final reserva = reservaSnap.data;
+                        return StreamBuilder<String?>(
+                          stream: AdminService.watchRole(),
+                          builder: (context, roleSnap) {
+                            final role = roleSnap.data;
 
-                    return StreamBuilder<String?>(
-                      stream: AdminService.watchRole(), // Nueva función que veremos en el Paso 3
-                      builder: (context, roleSnap) {
-                        final role = roleSnap.data;
+                            if (role == 'portero') {
+                              return Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                                child: Column(
+                                  children: [
+                                    const Icon(Icons.security, size: 64, color: kOrange),
+                                    const SizedBox(height: 16),
+                                    const Text('Modo Portero', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 16),
+                                    ElevatedButton.icon(
+                                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PorterScreen())),
+                                      icon: const Icon(Icons.qr_code_scanner),
+                                      label: const Text('Escanear QR de Estudiante'),
+                                      style: ElevatedButton.styleFrom(backgroundColor: kGreen, foregroundColor: Colors.black),
+                                    )
+                                  ],
+                                ),
+                              );
+                            }
 
-                        // 1. VISTA DEL PORTERO
-                        if (role == 'portero') {
-                          return Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                            child: Column(
+                            if (role == 'admin') {
+                              return Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                                child: const Column(
+                                  children: [
+                                    Icon(Icons.admin_panel_settings, size: 64, color: kOrange),
+                                    SizedBox(height: 16),
+                                    Text('Modo Administrador', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                                    SizedBox(height: 8),
+                                    Text('Usa el menú de ajustes para gestionar los parqueaderos.', textAlign: TextAlign.center),
+                                  ],
+                                ),
+                              );
+                            }
+
+                            return Column(
                               children: [
-                                const Icon(Icons.security, size: 64, color: kOrange),
+                                _ReserveCard(
+                                  onTap: () {
+                                    if (reserva != null) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Ya tienes una reserva activa. Cancélala para hacer otra.')),
+                                      );
+                                      return;
+                                    }
+                                    Navigator.push(context, MaterialPageRoute(builder: (context) => const VehiclesScreen()));
+                                  },
+                                ),
+                                if (reserva != null) ...[
+                                  const SizedBox(height: 16),
+                                  _ActiveReservaCard(reserva: reserva),
+                                ],
                                 const SizedBox(height: 16),
-                                const Text('Modo Portero', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 16),
-                                ElevatedButton.icon(
-                                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PorterScreen())),
-                                  icon: const Icon(Icons.qr_code_scanner),
-                                  label: const Text('Escanear QR de Estudiante'),
-                                  style: ElevatedButton.styleFrom(backgroundColor: kGreen, foregroundColor: Colors.black),
-                                )
                               ],
-                            ),
-                          );
-                        }
-
-                        // 2. VISTA DEL ADMIN (Para que no reserve)
-                        if (role == 'admin') {
-                          return Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                            child: const Column(
-                              children: [
-                                Icon(Icons.admin_panel_settings, size: 64, color: kOrange),
-                                SizedBox(height: 16),
-                                Text('Modo Administrador', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                                SizedBox(height: 8),
-                                Text('Usa el menú de ajustes para gestionar los parqueaderos.', textAlign: TextAlign.center),
-                              ],
-                            ),
-                          );
-                        }
-
-                        // 3. VISTA DEL ESTUDIANTE (Normal)
-                        return Column(
-                          children: [
-                            _ReserveCard(
-                              onTap: () {
-                                if (reserva != null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Ya tienes una reserva activa. Cancélala para hacer otra.')),
-                                  );
-                                  return;
-                                }
-                                Navigator.push(context, MaterialPageRoute(builder: (context) => const VehiclesScreen()));
-                              },
-                            ),
-                            if (reserva != null) ...[
-                              const SizedBox(height: 16),
-                              _ActiveReservaCard(reserva: reserva),
-                            ],
-                            const SizedBox(height: 16),
-                          ],
+                            );
+                          },
                         );
                       },
-                    );
-                  },
-                ),
+                    ),
                   ],
                 ),
               ),
@@ -930,7 +893,6 @@ class _Header extends StatelessWidget {
                   ],
                 ),
               ),
-              // La opción de administrador solo aparece si users/{uid}.rol == 'admin'.
               StreamBuilder<bool>(
                 stream: AdminService.watchIsAdmin(),
                 initialData: false,
@@ -1085,11 +1047,10 @@ class _BottomBar extends StatelessWidget {
     Icons.notifications,
   ];
 
-  // Reemplaza la pila de pantallas: queda Inicio + la pantalla elegida.
   void _open(NavigatorState nav, Widget page) {
     nav.pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => page),
-      (route) => route.isFirst,
+          (route) => route.isFirst,
     );
   }
 
@@ -1099,16 +1060,16 @@ class _BottomBar extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
 
     switch (index) {
-      case 0: // Inicio
+      case 0:
         nav.popUntil((route) => route.isFirst);
         break;
-      case 1: // Mis vehículos
+      case 1:
         _open(nav, const VehiclesScreen());
         break;
-      case 2: // Parqueaderos
+      case 2:
         _open(nav, const SelectParkingScreen());
         break;
-      case 3: // Mi reserva (código QR)
+      case 3:
         try {
           final reserva = await ParkingService.getMyReserva();
           if (reserva == null) {
@@ -1177,7 +1138,7 @@ class _BottomBar extends StatelessWidget {
 }
 
 class SelectParkingScreen extends StatefulWidget {
-  final String? plate; // null = se entró desde la barra de abajo
+  final String? plate;
   const SelectParkingScreen({super.key, this.plate});
 
   @override
@@ -1204,7 +1165,6 @@ class _SelectParkingScreenState extends State<SelectParkingScreen> {
   Future<void> _reserve(Parking p) async {
     final plate = widget.plate;
     if (plate == null) {
-      // Sin vehículo elegido: primero hay que escoger uno.
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const VehiclesScreen()),
@@ -1266,7 +1226,7 @@ class _SelectParkingScreenState extends State<SelectParkingScreen> {
                       child: Center(
                         child: Text(
                           'No se pudieron cargar los parqueaderos.\n'
-                          'Revisa tu conexión y las reglas de Firestore.',
+                              'Revisa tu conexión y las reglas de Firestore.',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
@@ -1284,7 +1244,7 @@ class _SelectParkingScreenState extends State<SelectParkingScreen> {
                   }
 
                   final selected = list.firstWhere(
-                    (p) => p.id == _selectedId,
+                        (p) => p.id == _selectedId,
                     orElse: () => list.first,
                   );
                   final selectedIndex = list.indexOf(selected);
@@ -1319,7 +1279,7 @@ class _SelectParkingScreenState extends State<SelectParkingScreen> {
                             selected.lleno
                                 ? 'PARQUEADERO OCUPADO\n0/${selected.total}'
                                 : 'Cupos disponibles\n'
-                                      '${selected.disponibles}/${selected.total}',
+                                '${selected.disponibles}/${selected.total}',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 22,
@@ -1350,22 +1310,22 @@ class _SelectParkingScreenState extends State<SelectParkingScreen> {
                           ),
                           child: _busy
                               ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 3,
-                                    color: Colors.black,
-                                  ),
-                                )
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              color: Colors.black,
+                            ),
+                          )
                               : Text(
-                                  widget.plate == null
-                                      ? 'Elegir vehículo y reservar'
-                                      : 'Seleccionar parqueadero',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                            widget.plate == null
+                                ? 'Elegir vehículo y reservar'
+                                : 'Seleccionar parqueadero',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -1854,7 +1814,7 @@ class QrScreen extends StatefulWidget {
 }
 
 class _QrScreenState extends State<QrScreen> {
-  static const Duration _validity = Duration(minutes: 30);
+  static const Duration _validity = Duration(seconds: 30);
 
   Timer? _timer;
   late String _code;
@@ -1873,27 +1833,35 @@ class _QrScreenState extends State<QrScreen> {
     super.dispose();
   }
 
-  // Crea un código nuevo, lo guarda en la reserva y reinicia la cuenta regresiva.
-  void _generate() {
+  void _generate() async {
     _timer?.cancel();
     final rnd = Random.secure();
-    _code = List.generate(
-      8,
-      (_) => rnd.nextInt(16).toRadixString(16),
-    ).join().toUpperCase();
+    _code = List.generate(8, (_) => rnd.nextInt(16).toRadixString(16)).join().toUpperCase();
     _expiresAt = DateTime.now().add(_validity);
     _remaining = _validity;
 
-    ParkingService.saveCode(_code, _expiresAt);
+    await ParkingService.saveCode(_code, _expiresAt);
 
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      try {
+        await FirebaseFirestore.instance.collection('reservas').doc(uid).update({'usado': false});
+      } catch (e) {
+        debugPrint('Error actualizando usado: $e');
+      }
+    }
+
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) async {
       if (!mounted) return;
       final left = _expiresAt.difference(DateTime.now());
       if (left <= Duration.zero) {
         _timer?.cancel();
         setState(() => _remaining = Duration.zero);
-
-        // Si el tiempo expira, liberamos el cupo automáticamente
         await ParkingService.release();
       } else {
         setState(() => _remaining = left);
@@ -1983,37 +1951,106 @@ class _QrScreenState extends State<QrScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              _expired ? _expiredBox() : _qrBox(),
-              const SizedBox(height: 24),
-              Text(
-                _expired ? 'Código vencido' : 'Tiempo de espera\n$_timeText',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 26),
+
+              StreamBuilder<Reserva?>(
+                stream: ParkingService.watchMyReserva(),
+                builder: (context, snapshot) {
+                  final r = snapshot.data;
+
+                  if (r != null && r.usado == true) {
+                    return Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade100,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.green.shade800, width: 2),
+                          ),
+                          child: const Column(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.green, size: 80),
+                              SizedBox(height: 16),
+                              Text(
+                                '¡Acceso Autorizado!',
+                                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Tu vehículo ha ingresado exitosamente.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.black54),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        if (r.salidaEstimada != null)
+                          Text(
+                            'Tiempo restante:\n${((r.salidaEstimada!.difference(DateTime.now()).inMinutes)).clamp(0, 120)} minutos',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                          ),
+                        const SizedBox(height: 32),
+                        const Text(
+                          'Muestra este QR al portero para salir:',
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          color: Colors.white,
+                          child: QrImageView(
+                            data: jsonEncode({
+                              'reserva': 'SALIDA-${r.parkingId}-${r.plate}',
+                              'uid': FirebaseAuth.instance.currentUser?.uid,
+                              'tipo': 'salida',
+                            }),
+                            version: QrVersions.auto,
+                            size: 200,
+                            backgroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      _expired ? _expiredBox() : _qrBox(),
+                      const SizedBox(height: 24),
+                      Text(
+                        _expired ? 'Código vencido' : 'Tiempo de espera\n$_timeText',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white, fontSize: 26),
+                      ),
+                      if (_expired) ...[
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => setState(_generate),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.black,
+                            shape: const StadiumBorder(),
+                          ),
+                          child: const Text('Generar nuevo código'),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: _cancel,
+                        icon: const Icon(Icons.close),
+                        label: const Text('Cancelar reserva'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.white),
+                          shape: const StadiumBorder(),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
-              if (_expired) ...[
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => setState(_generate),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                    shape: const StadiumBorder(),
-                  ),
-                  child: const Text('Generar nuevo código'),
-                ),
-              ],
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: _cancel,
-                icon: const Icon(Icons.close),
-                label: const Text('Cancelar reserva'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white),
-                  shape: const StadiumBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
             ],
           ),
         ),
